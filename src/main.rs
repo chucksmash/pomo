@@ -1,119 +1,195 @@
-#![feature(duration_as_u128)]
-
 extern crate termion;
 
-use std::io::{self, Write};
+use std::fmt;
+use std::io::{self, Read, Write};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use termion::{async_stdin, clear, screen};
-use termion::cursor::{self, DetectCursorPos};
-use termion::event::{Event, Key, MouseEvent};
-use termion::input::{MouseTerminal, TermRead};
+use termion::{async_stdin, clear};
+use termion::cursor;
 use termion::raw::IntoRawMode;
+use termion::screen::{self, AlternateScreen};
+
+use self::timer::Countdown;
+
+macro_rules! maybe_val {
+    ( $val:expr, $test:expr, $label:expr ) => {
+        {
+            match $test {
+                true => format!("{} {}", $val, $label),
+                false => "".to_owned(),
+            }
+        }
+    }
+}
 
 type TermResult = Result<(), io::Error>;
 
-fn run_w_mouse() -> TermResult {
-    let stdin = io::stdin();
-    let mut stdout = MouseTerminal::from(io::stdout().into_raw_mode()?);
+const SEC_IN_MINUTE: u64 = 60;
+const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
+const SEC_IN_DAY: u64 = SEC_IN_HOUR * 24;
+const DEFAULT_DURATION: Duration = Duration::from_secs(10);
+const SLEEP: Duration = Duration::from_millis(100);
 
-    writeln!(stdout,
-             "{}{}q to exit. Type stuff, use alt, click around...",
-             clear::All,
-             cursor::Goto(1, 1))?;
+struct Pomodoro<R, W> {
+    current: Option<Countdown>,
+    previous: Vec<Countdown>,
+    stdin: R,
+    stdout: W,
+}
 
-    for c in stdin.events() {
-        match c? {
-            Event::Key(Key::Char('q')) => break,
-            Event::Mouse(me) => {
-                match me {
-                    MouseEvent::Press(_, a, b) => {
-                        write!(stdout, "{}", cursor::Goto(a, b))?;
-                        let (x, y) = stdout.cursor_pos()?;
-                        write!(stdout,
-                               "{}{}Cursor is at: ({},{}){}",
-                               cursor::Goto(5, 5),
-                               clear::UntilNewline,
-                               x,
-                               y,
-                               cursor::Goto(a, b))?;
-                    },
-                    _ => {},
-                }
-            },
-            _ => {},
+impl<R: Read, W: Write> Pomodoro<R, W> {
+    fn new(stdin: R, stdout: W) -> Pomodoro<R, W> {
+        Pomodoro {
+            current: None,
+            previous: vec![],
+            stdin,
+            stdout,
         }
-        stdout.flush()?;
     }
-    write!(stdout, "{}{}{}\n", cursor::Goto(1, 1), clear::All, cursor::Goto(1, 1))?;
-    Ok(())
+}
+
+mod timer {
+    use super::*;
+
+    #[derive(Clone, Copy, PartialEq)]
+    pub enum State {
+        Running,
+        Paused,
+        Finished,
+    }
+
+    pub struct Countdown {
+        state: State,
+        start: Instant,
+        duration: Duration,
+        running: Duration,
+        paused: Duration,
+        title: String,
+        note: Option<String>,
+    }
+
+    impl Countdown {
+        pub fn new(duration: Duration, title: &str) -> Countdown {
+            Countdown {
+                state: State::Running,
+                start: Instant::now(),
+                duration,
+                running: Duration::from_secs(0),
+                paused: Duration::from_secs(0),
+                title: String::from(title),
+                note: None,
+            }
+        }
+
+        pub fn tick(&mut self) -> State {
+            use self::State::*;
+            let elapsed = self.start.elapsed();
+            match self.state {
+                Running => { self.running = elapsed - self.paused; },
+                Paused => { self.paused = elapsed - self.running; },
+                _ => {},
+            };
+            if self.duration.checked_sub(self.running).is_none() {
+                self.state = Finished;
+            }
+            self.state
+        }
+
+        pub fn toggle(&mut self) {
+            use self::State::*;
+            self.state = match self.state {
+                Running => Paused,
+                Paused => Running,
+                Finished => Finished,
+            };
+        }
+    }
+
+    impl fmt::Display for Countdown {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            use self::State::*;
+
+            let duration = match self.duration.checked_sub(self.running) {
+                Some(elapsed) => elapsed,
+                None => self.duration,
+            };
+
+            let status = match self.state {
+                Finished => "[FINISHED]",
+                Paused => "[PAUSED]",
+                Running => "",
+            };
+            write!(f, "{} {}", format_duration(&duration, &self.duration), status)
+        }
+    }
+
+    /// Duration isn't our struct and Display isn't our trait
+    /// so the majority of this cannot go into an
+    /// `impl Display for Duration` as I originally intended.
+    fn format_duration(curr: &Duration, out_of: &Duration) -> String {
+        let max = out_of.as_secs();
+        let total = curr.as_secs();
+        let mut tmp = total;
+        let days = tmp / SEC_IN_DAY;
+        tmp %= SEC_IN_DAY;
+        let hours = tmp / SEC_IN_HOUR;
+        tmp %= SEC_IN_HOUR;
+        let minutes = tmp / SEC_IN_MINUTE;
+        tmp %= SEC_IN_MINUTE;
+        let seconds = tmp;
+
+        format!("{}{}{}{:02} seconds",
+                maybe_val!(days, max >= SEC_IN_DAY, "days "),
+                maybe_val!(hours, max >= SEC_IN_HOUR, "hours "),
+                maybe_val!(minutes, max >= SEC_IN_MINUTE, "minutes "),
+                seconds)
+    }
+}
+
+fn cleanup<W: Write>(stdout: &mut W) -> TermResult {
+    write!(stdout,
+           "{}{}{}{}{}\n",
+           cursor::Goto(1, 1),
+           clear::All,
+           cursor::Goto(1, 1),
+           cursor::Show,
+           screen::ToMainScreen,
+    )
 }
 
 fn run() -> TermResult {
-    const MILLI_IN_SEC: u128 = 1000;
-    const MILLI_IN_MINUTE: u128 = MILLI_IN_SEC * 60;
-    const MILLI_IN_HOUR: u128 = MILLI_IN_MINUTE * 60;
-    const MILLI_IN_DAY: u128 = MILLI_IN_HOUR * 24;
-    const RUNTIME: Duration = Duration::from_secs(10);
-    const SLEEP: Duration = Duration::from_millis(100);
     let stdin = async_stdin();
-    let mut stdout = MouseTerminal::from(io::stdout().into_raw_mode()?);
+    let stdout = io::stdout();
+    let mut screen = AlternateScreen::from(stdout.lock().into_raw_mode()?);
 
-    writeln!(stdout,
+    let mut pomo = Pomodoro::new(stdin, screen);
+
+    writeln!(pomo.stdout,
              "{}{}{}",
              clear::All,
              cursor::Hide,
              cursor::Goto(1, 1))?;
 
-    let start = Instant::now();
-    loop {
-        let elapsed = start.elapsed();
-        match RUNTIME.checked_sub(elapsed) {
-            None => break,
-            Some(remaining) => {
-                let mut t = remaining.as_millis();
-                let total = t;
-                let days = t / MILLI_IN_DAY;
-                t %= MILLI_IN_DAY;
-                let hours = t / MILLI_IN_HOUR;
-                t %= MILLI_IN_HOUR;
-                let minutes = t / MILLI_IN_MINUTE;
-                t %= MILLI_IN_MINUTE;
-                let seconds = t / MILLI_IN_SEC;
-                t %= MILLI_IN_SEC;
-                let millis = t;
+    let mut countdown = Countdown::new(Duration::from_secs(11), "Whatever");
 
-                let day_str = match total >= MILLI_IN_DAY {
-                    true => format!("{} days ", days),
-                    false => "".to_owned(),
-                };
-                let hour_str = match total >= MILLI_IN_HOUR {
-                    true => format!("{} hours ", hours),
-                    false => "".to_owned(),
-                };
-                let minute_str = match total >= MILLI_IN_MINUTE {
-                    true => format!("{} minutes", minutes),
-                    false => "".to_owned(),
-                };
-                writeln!(stdout,
-                         "{}{}{}{}{}{}.{:02} seconds",
-                         cursor::Goto(1, 1),
-                         clear::All,
-                         day_str,
-                         hour_str,
-                         minute_str,
-                         seconds,
-                         millis / 10)?;
-                sleep(SLEEP);
-            },
+    while timer::State::Finished != countdown.tick() {
+        let mut key_bytes = [0];
+        pomo.stdin.read(&mut key_bytes)?;
+
+        match key_bytes[0] {
+            b'q' => break,
+            b' ' => { countdown.toggle(); },
+            _ => {},
         }
+        writeln!(pomo.stdout, "{}{}{}", clear::All, cursor::Goto(1, 1), countdown);
+        sleep(SLEEP);
     }
-    write!(stdout, "{}{}{}{}\n", cursor::Goto(1, 1), clear::All, cursor::Goto(1, 1), cursor::Show)?;
+    cleanup(&mut pomo.stdout)?;
+    write!(pomo.stdout, "{}\r\n", countdown)?;
     Ok(())
 }
 
 fn main() {
     run().unwrap();
-    // run_w_mouse().unwrap();
 }

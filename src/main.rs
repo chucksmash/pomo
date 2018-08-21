@@ -15,16 +15,27 @@ use termion::screen::{self, AlternateScreen};
 
 use self::timer::{Countdown, Position, Timer};
 
-macro_rules! maybe_val {
-    ( $val:expr, $test:expr, $label:expr ) => {
+macro_rules! maybe_str {
+    ( $val:expr, $test:expr ) => {
         {
             match $test {
-                true => format!("{:02}{}", $val, $label),
+                true => format!("{}", $val),
                 false => "".to_owned(),
             }
         }
     }
 }
+
+// macro_rules! maybe_val {
+//     ( $val:expr, $test:expr, $label:expr ) => {
+//         {
+//             match $test {
+//                 true => format!("{:02}{}", $val, $label),
+//                 false => "".to_owned(),
+//             }
+//         }
+//     }
+// }
 
 macro_rules! lines {
     ( $( $line:expr ),* ) => {
@@ -330,7 +341,7 @@ mod timer {
             tmp %= 60;
             let seconds = tmp;
             format!("{}{:02}:{:02}",
-                    maybe_val!(format!("{}:", hours), total >= SEC_IN_HOUR, ""),
+                    maybe_str!(format!("{}:", hours), total >= SEC_IN_HOUR),
                     minutes,
                     seconds)
                 .split("")

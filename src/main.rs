@@ -93,7 +93,10 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                 _ => {},
             }
             let rendered = timer::render(&self.current, &Position { x: 5, y: 5});
-            write!(self.stdout, "{}", rendered);
+            let rendered_help = help::render(&Position { x: 5, y: 16 });
+            write!(self.stdout, "{}", rendered)?;
+            write!(self.stdout, "{}", rendered_help)?;
+            self.stdout.flush()?;
             sleep(SLEEP);
         }
         self.cleanup()?;
@@ -112,6 +115,31 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                cursor::Show,
                screen::ToMainScreen,
         )
+    }
+}
+
+mod help {
+    use super::*;
+
+    macro_rules! help {
+        ( $key:expr, $prefix:expr, $suffix:expr ) => {
+            {
+                format!("{reset}{prefix}{bold}{key}{reset}{suffix}",
+                        reset=style::Reset,
+                        bold=style::Bold,
+                        prefix=$prefix,
+                        key=$key,
+                        suffix=$suffix)
+            }
+        }
+    }
+
+
+    pub fn render(pos: &Position) -> String {
+        let commands = vec![help!{"<SPACE>", "", ": pause/unpause"},
+                            help!{"(q)", "", "uit"}]
+            .join("   ");
+        format!("{}{}", cursor::Goto(pos.x, pos.y), commands)
     }
 }
 

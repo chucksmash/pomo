@@ -50,6 +50,45 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
             stdout,
         }
     }
+
+    fn run(&mut self) -> TermResult {
+        writeln!(self.stdout,
+                 "{}{}{}",
+                 clear::All,
+                 cursor::Hide,
+                 cursor::Goto(1, 1))?;
+
+        self.current = Countdown::new(self.run_length, "Whatever");
+
+        while timer::State::Finished != self.current.tick() {
+            let mut key_bytes = [0];
+            self.stdin.read(&mut key_bytes)?;
+
+            match key_bytes[0] {
+                b'q' => break,
+                b' ' => { self.current.toggle(); },
+                _ => {},
+            }
+            writeln!(self.stdout, "{}{}{}", clear::All, cursor::Goto(1, 1), self.current.one_line());
+            sleep(SLEEP);
+        }
+        self.cleanup()?;
+        write!(self.stdout,
+               "{}\r\n",
+               self.current.summarize().replace("\n", "\r\n"))?;
+        Ok(())
+    }
+
+    fn cleanup(&mut self) -> TermResult {
+        write!(self.stdout,
+               "{}{}{}{}{}\n",
+               cursor::Goto(1, 1),
+               clear::All,
+               cursor::Goto(1, 1),
+               cursor::Show,
+               screen::ToMainScreen,
+        )
+    }
 }
 
 mod timer {
@@ -194,49 +233,20 @@ mod timer {
     }
 }
 
-fn cleanup<W: Write>(stdout: &mut W) -> TermResult {
-    write!(stdout,
-           "{}{}{}{}{}\n",
-           cursor::Goto(1, 1),
-           clear::All,
-           cursor::Goto(1, 1),
-           cursor::Show,
-           screen::ToMainScreen,
-    )
-}
+// fn run() -> TermResult {
+//     let stdin = async_stdin();
+//     let stdout = io::stdout();
+//     let mut screen = AlternateScreen::from(stdout.lock().into_raw_mode()?);
 
-fn run() -> TermResult {
-    let stdin = async_stdin();
-    let stdout = io::stdout();
-    let mut screen = AlternateScreen::from(stdout.lock().into_raw_mode()?);
-
-    let mut pomo = Pomodoro::new(stdin, screen);
-
-    writeln!(pomo.stdout,
-             "{}{}{}",
-             clear::All,
-             cursor::Hide,
-             cursor::Goto(1, 1))?;
-
-    let mut countdown = Countdown::new(Duration::from_secs(11), "Whatever");
-
-    while timer::State::Finished != countdown.tick() {
-        let mut key_bytes = [0];
-        pomo.stdin.read(&mut key_bytes)?;
-
-        match key_bytes[0] {
-            b'q' => break,
-            b' ' => { countdown.toggle(); },
-            _ => {},
-        }
-        writeln!(pomo.stdout, "{}{}{}", clear::All, cursor::Goto(1, 1), countdown);
-        sleep(SLEEP);
-    }
-    cleanup(&mut pomo.stdout)?;
-    write!(pomo.stdout, "{}\r\n", countdown)?;
-    Ok(())
-}
+//     let mut pomo = Pomodoro::new(stdin, screen);
+//     pomo.run()
+// }
 
 fn main() {
-    run().unwrap();
+    let stdin = async_stdin();
+    let stdout = io::stdout();
+    let mut screen = AlternateScreen::from(
+        stdout.lock().into_raw_mode().unwrap());
+    let mut pomo = Pomodoro::new(stdin, screen);
+    pomo.run().unwrap();
 }

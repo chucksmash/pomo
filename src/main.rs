@@ -94,13 +94,21 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                 b' ' => { self.current.toggle(); self.bell()?; },
                 _ => {},
             }
+            write!(self.stdout, "{}", clear::All);
+            let rendered_card = card::render(3, 4, 15, 40);
             let rendered = timer::render(&self.current, &Position { x: 5, y: 5});
-            let rendered_help = help::render(&Position { x: 5, y: 16 });
+            let rendered_help = help::render(&Position { x: 5, y: 17 });
+            write!(self.stdout, "{}", rendered_card)?;
             write!(self.stdout, "{}", rendered)?;
             write!(self.stdout, "{}", rendered_help)?;
             self.stdout.flush()?;
             sleep(SLEEP);
         }
+        for i in 0..10 {
+            writeln!(self.stdout, "\x07{}", cursor::Goto(1, 1))?;
+            sleep(SLEEP * 2);
+        }
+
         self.cleanup()?;
         Ok(())
     }
@@ -172,6 +180,53 @@ mod help {
                             help!{"(q)", "", "uit"}]
             .join("   ");
         format!("{}{}", cursor::Goto(pos.x, pos.y), commands)
+    }
+}
+
+mod card {
+    use termion::{cursor, style};
+
+    use timer::Position;
+
+    pub fn render(x: u16, y: u16, height: u16, width: u16) -> String {
+        // "┏";
+        // "┗";
+        // "┓";
+        // "┛";
+        // "┃";
+        // "━";
+        // "╴";
+        // "╶";
+        // "─";
+        let w = width as usize;
+        let h = height as usize;
+        let mut rows = vec![];
+        for offset in (0..height) {
+            let loc = cursor::Goto(x, y + offset);
+            rows.push(match offset {
+                o if o == 0 => format!("{loc}{reset}{left}{empty:━>width$}{right}{reset}",
+                             loc=loc,
+                             reset=style::Reset,
+                             left="┏",
+                             empty="",
+                             width=w,
+                             right="┓"),
+                o if o == height - 1 => format!("{loc}{reset}{left}{empty:━>width$}{right}{reset}",
+                                      loc=loc,
+                                      reset=style::Reset,
+                                      left="┗",
+                                      empty="",
+                                      width=w,
+                                      right="┛"),
+                _ => format!("{loc}{reset}{side}{empty:width$}{side}{reset}",
+                            loc=loc,
+                            reset=style::Reset,
+                            side="┃",
+                            empty="",
+                            width=w),
+            });
+        }
+        rows.join("")
     }
 }
 
@@ -387,7 +442,7 @@ mod timer {
                                           State::Paused => "[PAUSED]",
                                           _ => "",
                                       });
-        let mut lines: Vec<Vec<String>> = (2..7)
+        let mut lines: Vec<Vec<String>> = (3..8)
             .map(|idx| vec![format!("{}", cursor::Goto(pos.x, pos.y + idx))])
             .collect();
         let digits = to_digit_strs(countdown);
@@ -402,8 +457,7 @@ mod timer {
             .map(|line| line.join(""))
             .collect::<Vec<String>>()
             .join("");
-        format!("{clear}{pos}{reset}{title}{reset} {status}{lines}",
-                clear=clear::All,
+        format!("{pos}{reset}{title}{reset} {status}{lines}",
                 pos=cursor::Goto(pos.x, pos.y),
                 reset=style::Reset,
                 title=rendered_title,

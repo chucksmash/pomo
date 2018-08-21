@@ -130,6 +130,39 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
     }
 }
 
+mod parser {
+    use std::time::Duration;
+
+    pub fn parse_time(raw_time: &str) -> Result<Duration, ()> {
+        let mut hours: u64 = 0;
+        let mut minutes: u64 = 0;
+        let mut seconds: u64 = 0;
+        let mut total: u64 = 0;
+        let parts: Vec<_> = raw_time.split(":").collect();
+        // TODO: Handle overflow case without panicking
+        match parts.len() {
+            p if p == 3 => {
+                hours = parts[0].parse::<u64>().or(Err(()))?;
+                minutes = parts[1].parse::<u64>().or(Err(()))?;
+                seconds = parts[2].parse::<u64>().or(Err(()))?;
+                total = hours * 3600 + minutes * 60 + seconds;
+                Ok(Duration::from_secs(total))
+            },
+            p if p == 2 => {
+                minutes = parts[0].parse::<u64>().or(Err(()))?;
+                seconds = parts[1].parse::<u64>().or(Err(()))?;
+                total = minutes * 60 + seconds;
+                Ok(Duration::from_secs(total))
+            },
+            p if p == 1 => {
+                seconds = parts[0].parse::<u64>().or(Err(()))?;
+                Ok(Duration::from_secs(seconds))
+            },
+            _ => Err(()),
+        }
+    }
+}
+
 mod help {
     use super::*;
 

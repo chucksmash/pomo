@@ -5,8 +5,7 @@ use std::io::{self, Read, Write};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use termion::{async_stdin, clear};
-use termion::cursor;
+use termion::{async_stdin, clear, cursor};
 use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
 
@@ -34,6 +33,8 @@ const SLEEP: Duration = Duration::from_millis(100);
 struct Pomodoro<R, W> {
     current: Option<Countdown>,
     previous: Vec<Countdown>,
+    run_length: Duration,
+    break_length: Duration,
     stdin: R,
     stdout: W,
 }
@@ -43,6 +44,8 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
         Pomodoro {
             current: None,
             previous: vec![],
+            run_length: Duration::from_secs(10),
+            break_length: Duration::from_secs(5),
             stdin,
             stdout,
         }

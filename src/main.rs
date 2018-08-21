@@ -5,7 +5,7 @@ use std::io::{self, Read, Write};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use termion::{async_stdin, clear, cursor};
+use termion::{async_stdin, clear, cursor, style};
 use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
 
@@ -31,7 +31,7 @@ const DEFAULT_DURATION: Duration = Duration::from_secs(10);
 const SLEEP: Duration = Duration::from_millis(100);
 
 struct Pomodoro<R, W> {
-    current: Option<Countdown>,
+    current: Countdown,
     previous: Vec<Countdown>,
     run_length: Duration,
     break_length: Duration,
@@ -42,7 +42,7 @@ struct Pomodoro<R, W> {
 impl<R: Read, W: Write> Pomodoro<R, W> {
     fn new(stdin: R, stdout: W) -> Pomodoro<R, W> {
         Pomodoro {
-            current: None,
+            current: Countdown::new(Duration::from_secs(0), ""),
             previous: vec![],
             run_length: Duration::from_secs(10),
             break_length: Duration::from_secs(5),
@@ -60,6 +60,19 @@ mod timer {
         Running,
         Paused,
         Finished,
+    }
+
+    impl fmt::Display for State {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            use self::State::*;
+
+            write!(f, "[{}]",
+                   match self {
+                       Running => "RUNNING",
+                       Paused => "PAUSED",
+                       Finished => "FINISHED",
+                   })
+        }
     }
 
     pub struct Countdown {
@@ -106,6 +119,37 @@ mod timer {
                 Paused => Running,
                 Finished => Finished,
             };
+        }
+
+        pub fn total(&self) -> Duration {
+            self.running + self.paused
+        }
+
+        // TODO: This should not be on the Countdown itself imo
+        pub fn one_line(&self) -> String {
+            let total = self.total();
+            format!("{}> {}{}{}{}{}: {} ({}) {}",
+                    style::Bold,
+                    style::Reset,
+                    style::Underline,
+                    style::Italic,
+                    self.title,
+                    style::Reset,
+                    format_duration(&(self.duration - self.running), &self.duration),
+                    format_duration(&self.duration, &self.duration),
+                    self.state)
+        }
+
+        pub fn summarize(&self) -> String {
+            let total = self.total();
+            format!("{} {}
+  - Total Duration: {}
+  - Time Running:   {}
+  - Time Paused:    {}",
+                   self.title, self.state,
+                   format_duration(&total, &total),
+                   format_duration(&self.running, &total),
+                   format_duration(&self.paused, &total))
         }
     }
 

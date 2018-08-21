@@ -92,9 +92,6 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                  cursor::Hide,
                  cursor::Goto(1, 1))?;
 
-        let duration = Duration::from_secs(1500);
-        self.current = Timer::Work(Countdown::new(duration, "Parsing HH:MM:SS"));
-
         while timer::State::Finished != self.current.tick() {
             let mut key_bytes = [0];
             self.stdin.read(&mut key_bytes)?;
@@ -490,11 +487,16 @@ fn build_cli<'a, 'b>() -> clap::App<'a, 'b> {
 fn main() {
     let matches = build_cli().get_matches();
     let raw_time = matches.value_of("time").unwrap_or("25:00");
-    let raw_name = matches.value_of("task").unwrap_or("");
+    let time = parser::parse_time(raw_time).expect("Unable to parse time param");
+    let name = matches.value_of("goal").unwrap_or("").to_string();
 
     let stdout = io::stdout();
     let screen = AlternateScreen::from(
         stdout.lock().into_raw_mode().unwrap());
-    let mut pomo = Pomodoro::new(async_stdin(), screen, Default::default());
+    let mut pomo = Pomodoro::from_parts(async_stdin(),
+                                        screen,
+                                        name,
+                                        time);
+    // let mut pomo = Pomodoro::new(async_stdin(), screen, Default::default());
     pomo.run().unwrap();
 }

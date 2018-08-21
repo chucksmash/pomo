@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["Chuck Bassett <3101367+chucksmash@users.noreply.github.com>"]
 
 [dependencies]
+chrono = "0.4"
 termion = "1.5"

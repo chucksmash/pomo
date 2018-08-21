@@ -1,3 +1,4 @@
+extern crate chrono;
 extern crate termion;
 
 use std::fmt;
@@ -5,7 +6,8 @@ use std::io::{self, Read, Write};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use termion::{async_stdin, clear, cursor, style};
+use chrono::{DateTime, Duration as OldDuration, Local};
+use termion::{async_stdin, clear, color, cursor, style};
 use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
 
@@ -116,7 +118,7 @@ mod timer {
 
     pub struct Countdown {
         state: State,
-        start: Instant,
+        start: DateTime<Local>,
         duration: Duration,
         running: Duration,
         paused: Duration,
@@ -128,7 +130,7 @@ mod timer {
         pub fn new(duration: Duration, title: &str) -> Countdown {
             Countdown {
                 state: State::Running,
-                start: Instant::now(),
+                start: Local::now(),
                 duration,
                 running: Duration::from_secs(0),
                 paused: Duration::from_secs(0),
@@ -139,7 +141,8 @@ mod timer {
 
         pub fn tick(&mut self) -> State {
             use self::State::*;
-            let elapsed = self.start.elapsed();
+            let diff = Local::now().signed_duration_since(self.start);
+            let elapsed = OldDuration::to_std(&diff).unwrap();
             match self.state {
                 Running => { self.running = elapsed - self.paused; },
                 Paused => { self.paused = elapsed - self.running; },
@@ -164,31 +167,22 @@ mod timer {
             self.running + self.paused
         }
 
-        // TODO: This should not be on the Countdown itself imo
-        pub fn one_line(&self) -> String {
-            let total = self.total();
-            format!("{}> {}{}{}{}{}: {} ({}) {}",
-                    style::Bold,
-                    style::Reset,
-                    style::Underline,
-                    style::Italic,
-                    self.title,
-                    style::Reset,
-                    format_duration(&(self.duration - self.running), &self.duration),
-                    format_duration(&self.duration, &self.duration),
-                    self.state)
-        }
-
         pub fn summarize(&self) -> String {
             let total = self.total();
+            let end = self.start + OldDuration::from_std(total).unwrap();
             format!("{} {}
   - Total Duration: {}
   - Time Running:   {}
-  - Time Paused:    {}",
-                   self.title, self.state,
-                   format_duration(&total, &total),
-                   format_duration(&self.running, &total),
-                   format_duration(&self.paused, &total))
+  - Time Paused:    {}
+  - Started:        {}
+  - Ended:          {}",
+                    self.title, self.state,
+                    format_duration(&total, &total),
+                    format_duration(&self.running, &total),
+                    format_duration(&self.paused, &total),
+                    self.start.to_rfc3339(),
+                    end.to_rfc3339())
+
         }
     }
 

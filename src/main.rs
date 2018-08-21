@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate clap;
 extern crate termion;
 
 use std::default::Default;
@@ -9,6 +10,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use chrono::{DateTime, Duration as OldDuration, Local};
+use clap::{App, Arg};
 use termion::{async_stdin, clear, color, cursor, style};
 use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
@@ -71,6 +73,16 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
             stdin,
             stdout,
         }
+    }
+
+    fn from_parts(
+        stdin: R,
+        stdout: W,
+        name: String,
+        duration: Duration
+    ) -> Pomodoro<R, W> {
+        let timer = Timer::Work(Countdown::new(duration, &name));
+        Pomodoro::new(stdin, stdout, timer)
     }
 
     fn run(&mut self) -> TermResult {
@@ -418,7 +430,35 @@ mod timer {
     }
 }
 
+fn build_cli<'a, 'b>() -> clap::App<'a, 'b> {
+    App::new("Pomo")
+        .version("0.1.0")
+        .author("Chuck Bassett <3101367+chucksmash@users.noreply.github.com>")
+        .about("Quick and Dirty CLI Pomodoro Timer")
+        .arg(Arg::with_name("goal")
+             .long("goal")
+             .short("g")
+             .value_name("NAME")
+             .help("Name of the current task you are working on.
+(default: \"\")
+
+")
+             .takes_value(true))
+        .arg(Arg::with_name("time")
+             .long("time")
+             .short("t")
+             .value_name("TIME")
+             .help("Initial time (format: [[HH:]MM:]SS).
+(default: 25:00 minutes)
+
+"))
+}
+
 fn main() {
+    let matches = build_cli().get_matches();
+    let raw_time = matches.value_of("time").unwrap_or("25:00");
+    let raw_name = matches.value_of("task").unwrap_or("");
+
     let stdout = io::stdout();
     let screen = AlternateScreen::from(
         stdout.lock().into_raw_mode().unwrap());

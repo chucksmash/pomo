@@ -28,17 +28,6 @@ macro_rules! maybe_str {
     }
 }
 
-// macro_rules! maybe_val {
-//     ( $val:expr, $test:expr, $label:expr ) => {
-//         {
-//             match $test {
-//                 true => format!("{:02}{}", $val, $label),
-//                 false => "".to_owned(),
-//             }
-//         }
-//     }
-// }
-
 macro_rules! lines {
     ( $( $line:expr ),* ) => {
         {
@@ -109,9 +98,6 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
             sleep(SLEEP);
         }
         self.cleanup()?;
-        // write!(self.stdout,
-        //        "{}\r\n",
-        //        self.current.summarize().replace("\n", "\r\n"))?;
         Ok(())
     }
 
@@ -258,24 +244,6 @@ mod timer {
         }
     }
 
-    // impl fmt::Display for Countdown {
-    //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    //         use self::State::*;
-
-    //         let duration = match self.duration.checked_sub(self.running) {
-    //             Some(elapsed) => elapsed,
-    //             None => self.duration,
-    //         };
-
-    //         let status = match self.state {
-    //             Finished => "[FINISHED]",
-    //             Paused => "[PAUSED]",
-    //             Running => "",
-    //         };
-    //         write!(f, "{} {}", format_duration(&duration, &self.duration), status)
-    //     }
-    // }
-
     impl Default for Countdown {
         fn default() -> Countdown {
             Countdown::new(Duration::from_secs(0), "")
@@ -312,26 +280,6 @@ mod timer {
             Timer::Work(Default::default())
         }
     }
-
-
-    // /// Duration isn't our struct and Display isn't our trait
-    // /// so the majority of this cannot go into an
-    // /// `impl Display for Duration` as I originally intended.
-    // fn format_duration(curr: &Duration, out_of: &Duration) -> String {
-    //     let max = out_of.as_secs();
-    //     let total = curr.as_secs();
-    //     let mut tmp = total;
-    //     let hours = tmp / SEC_IN_HOUR;
-    //     tmp %= SEC_IN_HOUR;
-    //     let minutes = tmp / SEC_IN_MINUTE;
-    //     tmp %= SEC_IN_MINUTE;
-    //     let seconds = tmp;
-
-    //     format!("{}{:02}:{:02}",
-    //             maybe_val!(hours, max >= SEC_IN_HOUR, ":"),
-    //             minutes,
-    //             seconds)
-    // }
 
     #[derive(Debug, PartialEq)]
     pub struct Position {
@@ -497,6 +445,5 @@ fn main() {
                                         screen,
                                         name,
                                         time);
-    // let mut pomo = Pomodoro::new(async_stdin(), screen, Default::default());
     pomo.run().unwrap();
 }

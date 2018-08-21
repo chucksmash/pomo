@@ -84,7 +84,8 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                 b' ' => { self.current.toggle(); },
                 _ => {},
             }
-            writeln!(self.stdout, "{}{}{}", clear::All, cursor::Goto(1, 1), self.current.one_line());
+            let rendered = timer::render(&self.current, &Position { x: 5, y: 5});
+            write!(self.stdout, "{}", rendered);
             sleep(SLEEP);
         }
         self.cleanup()?;

@@ -74,6 +74,10 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
         Pomodoro::new(stdin, stdout, timer)
     }
 
+    fn bell(&mut self) -> TermResult {
+        write!(self.stdout, "\x07")
+    }
+
     fn run(&mut self) -> TermResult {
         writeln!(self.stdout,
                  "{}{}{}",
@@ -87,7 +91,7 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
 
             match key_bytes[0] {
                 b'q' => break,
-                b' ' => { self.current.toggle(); },
+                b' ' => { self.current.toggle(); self.bell()?; },
                 _ => {},
             }
             let rendered = timer::render(&self.current, &Position { x: 5, y: 5});

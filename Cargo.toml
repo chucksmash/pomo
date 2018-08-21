@@ -5,4 +5,5 @@ authors = ["Chuck Bassett <3101367+chucksmash@users.noreply.github.com>"]
 
 [dependencies]
 chrono = "0.4"
+clap = "2.32.0"
 termion = "1.5"

@@ -3,7 +3,6 @@ extern crate clap;
 extern crate termion;
 
 use std::default::Default;
-use std::fmt;
 use std::io::{self, Read, Write};
 use std::thread::sleep;
 use std::time::Duration;
@@ -260,22 +259,6 @@ mod timer {
         Running,
         Paused,
         Finished,
-    }
-
-    impl fmt::Display for State {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            use self::State::*;
-
-            write!(
-                f,
-                "[{}]",
-                match self {
-                    Running => "RUNNING",
-                    Paused => "PAUSED",
-                    Finished => "FINISHED",
-                }
-            )
-        }
     }
 
     pub struct Countdown {

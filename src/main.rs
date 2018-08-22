@@ -10,21 +10,19 @@ use std::time::Duration;
 
 use chrono::{DateTime, Duration as OldDuration, Local};
 use clap::{App, Arg};
-use termion::{async_stdin, clear, color, cursor, style};
 use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
+use termion::{async_stdin, clear, color, cursor, style};
 
 use self::timer::{Countdown, Position};
 
 macro_rules! maybe_str {
-    ( $val:expr, $test:expr ) => {
-        {
-            match $test {
-                true => format!("{}", $val),
-                false => "".to_owned(),
-            }
+    ( $val:expr, $test:expr ) => {{
+        match $test {
+            true => format!("{}", $val),
+            false => "".to_owned(),
         }
-    }
+    }};
 }
 
 macro_rules! lines {
@@ -63,12 +61,7 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
         }
     }
 
-    fn from_parts(
-        stdin: R,
-        stdout: W,
-        name: String,
-        duration: Duration
-    ) -> Pomodoro<R, W> {
+    fn from_parts(stdin: R, stdout: W, name: String, duration: Duration) -> Pomodoro<R, W> {
         let counter = Countdown::new(duration, &name);
         Pomodoro::new(stdin, stdout, counter)
     }
@@ -78,11 +71,13 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
     }
 
     fn run(&mut self) -> TermResult {
-        writeln!(self.stdout,
-                 "{}{}{}",
-                 clear::All,
-                 cursor::Hide,
-                 cursor::Goto(1, 1))?;
+        writeln!(
+            self.stdout,
+            "{}{}{}",
+            clear::All,
+            cursor::Hide,
+            cursor::Goto(1, 1)
+        )?;
 
         while timer::State::Finished != self.current.tick() {
             let mut key_bytes = [0];
@@ -90,12 +85,15 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
 
             match key_bytes[0] {
                 b'q' => break,
-                b' ' => { self.current.toggle(); self.bell()?; },
-                _ => {},
+                b' ' => {
+                    self.current.toggle();
+                    self.bell()?;
+                }
+                _ => {}
             }
             write!(self.stdout, "{}", clear::All);
             let rendered_card = card::render(3, 2, 15, 50);
-            let rendered = timer::render(&self.current, &Position { x: 5, y: 3});
+            let rendered = timer::render(&self.current, &Position { x: 5, y: 3 });
             let rendered_help = help::render(&Position { x: 5, y: 15 });
             write!(self.stdout, "{}", rendered_card)?;
             write!(self.stdout, "{}", rendered)?;
@@ -113,13 +111,14 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
     }
 
     fn cleanup(&mut self) -> TermResult {
-        write!(self.stdout,
-               "{}{}{}{}{}\n",
-               cursor::Goto(1, 1),
-               clear::All,
-               cursor::Goto(1, 1),
-               cursor::Show,
-               screen::ToMainScreen,
+        write!(
+            self.stdout,
+            "{}{}{}{}{}\n",
+            cursor::Goto(1, 1),
+            clear::All,
+            cursor::Goto(1, 1),
+            cursor::Show,
+            screen::ToMainScreen,
         )
     }
 }
@@ -137,17 +136,17 @@ mod parser {
                 let seconds = parts[2].parse::<u64>().or(Err(()))?;
                 let total = hours * 3600 + minutes * 60 + seconds;
                 Ok(Duration::from_secs(total))
-            },
+            }
             p if p == 2 => {
                 let minutes = parts[0].parse::<u64>().or(Err(()))?;
                 let seconds = parts[1].parse::<u64>().or(Err(()))?;
                 let total = minutes * 60 + seconds;
                 Ok(Duration::from_secs(total))
-            },
+            }
             p if p == 1 => {
                 let seconds = parts[0].parse::<u64>().or(Err(()))?;
                 Ok(Duration::from_secs(seconds))
-            },
+            }
             _ => Err(()),
         }
     }
@@ -157,23 +156,23 @@ mod help {
     use super::*;
 
     macro_rules! help {
-        ( $key:expr, $prefix:expr, $suffix:expr ) => {
-            {
-                format!("{reset}{prefix}{bold}{key}{reset}{suffix}",
-                        reset=style::Reset,
-                        bold=style::Bold,
-                        prefix=$prefix,
-                        key=$key,
-                        suffix=$suffix)
-            }
-        }
+        ( $key:expr, $prefix:expr, $suffix:expr ) => {{
+            format!(
+                "{reset}{prefix}{bold}{key}{reset}{suffix}",
+                reset = style::Reset,
+                bold = style::Bold,
+                prefix = $prefix,
+                key = $key,
+                suffix = $suffix
+            )
+        }};
     }
 
-
     pub fn render(pos: &Position) -> String {
-        let commands = vec![help!{"<SPACE>", "", ": pause/unpause"},
-                            help!{"(q)", "", "uit"}]
-            .join("   ");
+        let commands = vec![
+            help!{"<SPACE>", "", ": pause/unpause"},
+            help!{"(q)", "", "uit"},
+        ].join("   ");
         format!("{}{}", cursor::Goto(pos.x, pos.y), commands)
     }
 }
@@ -191,45 +190,50 @@ mod card {
             rows.push(match offset {
                 o if o == 0 => format!(
                     "{loc}{reset}{left}{empty:━>width$}{right}{reset}",
-                    loc=cursor::Goto(pos.x, pos.y),
-                    reset=style::Reset,
-                    left="┏",
-                    empty="",
-                    width=w,
-                    right="┓"),
+                    loc = cursor::Goto(pos.x, pos.y),
+                    reset = style::Reset,
+                    left = "┏",
+                    empty = "",
+                    width = w,
+                    right = "┓"
+                ),
                 o if o == 2 => format!(
                     "{loc}{reset}{side}{linner}{empty:─>width$}{rinner}{side}{reset}",
-                    loc=cursor::Goto(pos.x, pos.y),
-                    reset=style::Reset,
-                    side="┃",
-                    linner="╶",
-                    empty="",
-                    width=w-2,
-                    rinner="╴"),
+                    loc = cursor::Goto(pos.x, pos.y),
+                    reset = style::Reset,
+                    side = "┃",
+                    linner = "╶",
+                    empty = "",
+                    width = w - 2,
+                    rinner = "╴"
+                ),
                 o if o == height - 3 => format!(
                     "{loc}{reset}{side}{linner}{empty:─>width$}{rinner}{side}{reset}",
-                    loc=cursor::Goto(pos.x, pos.y),
-                    reset=style::Reset,
-                    side="┃",
-                    linner="╶",
-                    empty="",
-                    width=w-2,
-                    rinner="╴"),
+                    loc = cursor::Goto(pos.x, pos.y),
+                    reset = style::Reset,
+                    side = "┃",
+                    linner = "╶",
+                    empty = "",
+                    width = w - 2,
+                    rinner = "╴"
+                ),
                 o if o == height - 1 => format!(
                     "{loc}{reset}{left}{empty:━>width$}{right}{reset}",
-                    loc=cursor::Goto(pos.x, pos.y),
-                    reset=style::Reset,
-                    left="┗",
-                    empty="",
-                    width=w,
-                    right="┛"),
+                    loc = cursor::Goto(pos.x, pos.y),
+                    reset = style::Reset,
+                    left = "┗",
+                    empty = "",
+                    width = w,
+                    right = "┛"
+                ),
                 _ => format!(
                     "{loc}{reset}{side}{empty:width$}{side}{reset}",
-                    loc=cursor::Goto(pos.x, pos.y),
-                    reset=style::Reset,
-                    side="┃",
-                    empty="",
-                    width=w),
+                    loc = cursor::Goto(pos.x, pos.y),
+                    reset = style::Reset,
+                    side = "┃",
+                    empty = "",
+                    width = w
+                ),
             });
         }
         rows.join("")
@@ -250,12 +254,15 @@ mod timer {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             use self::State::*;
 
-            write!(f, "[{}]",
-                   match self {
-                       Running => "RUNNING",
-                       Paused => "PAUSED",
-                       Finished => "FINISHED",
-                   })
+            write!(
+                f,
+                "[{}]",
+                match self {
+                    Running => "RUNNING",
+                    Paused => "PAUSED",
+                    Finished => "FINISHED",
+                }
+            )
         }
     }
 
@@ -285,9 +292,13 @@ mod timer {
             let diff = Local::now().signed_duration_since(self.start);
             let elapsed = OldDuration::to_std(&diff).unwrap();
             match self.state {
-                Running => { self.running = elapsed - self.paused; },
-                Paused => { self.paused = elapsed - self.running; },
-                _ => {},
+                Running => {
+                    self.running = elapsed - self.paused;
+                }
+                Paused => {
+                    self.paused = elapsed - self.running;
+                }
+                _ => {}
             };
             if self.duration.checked_sub(self.running).is_none() {
                 self.state = Finished;
@@ -319,61 +330,71 @@ mod timer {
 
     fn render_digit(digit: &str) -> Vec<String> {
         match digit {
-            "0" => lines!["█████",
-                          "█   █",
-                          "█   █",
-                          "█   █",
-                          "█████"],
-            "1" => lines!["    █",
-                          "    █",
-                          "    █",
-                          "    █",
-                          "    █"],
-            "2" => lines!["█████",
-                          "   ██",
-                          "█████",
-                          "█    ",
-                          "█████"],
-            "3" => lines!["█████",
-                          "    █",
-                          "█████",
-                          "    █",
-                          "█████"],
-            "4" => lines!["█   █",
-                          "█   █",
-                          "█████",
-                          "    █",
-                          "    █"],
-            "5" => lines!["█████",
-                          "█    ",
-                          "█████",
-                          "    █",
-                          "█████"],
-            "6" => lines!["█████",
-                          "█    ",
-                          "█████",
-                          "█   █",
-                          "█████"],
-            "7" => lines!["█████",
-                          "    █",
-                          "    █",
-                          "    █",
-                          "    █"],
-            "8" => lines!["█████",
-                          "█   █",
-                          "█████",
-                          "█   █",
-                          "█████"],
-            "9" => lines!["█████",
-                          "█   █",
-                          "█████",
-                          "    █",
-                          "█████"],
-            ":" => lines!["   ",
-                          " █ ",
-                          "   ",
-                          " █ ",
-                          "   "],
+            "0" => lines![
+                "█████",
+                "█   █",
+                "█   █",
+                "█   █",
+                "█████"
+            ],
+            "1" => lines!["    █", "    █", "    █", "    █", "    █"],
+            "2" => lines![
+                "█████",
+                "   ██",
+                "█████",
+                "█    ",
+                "█████"
+            ],
+            "3" => lines![
+                "█████",
+                "    █",
+                "█████",
+                "    █",
+                "█████"
+            ],
+            "4" => lines![
+                "█   █",
+                "█   █",
+                "█████",
+                "    █",
+                "    █"
+            ],
+            "5" => lines![
+                "█████",
+                "█    ",
+                "█████",
+                "    █",
+                "█████"
+            ],
+            "6" => lines![
+                "█████",
+                "█    ",
+                "█████",
+                "█   █",
+                "█████"
+            ],
+            "7" => lines![
+                "█████",
+                "    █",
+                "    █",
+                "    █",
+                "    █"
+            ],
+            "8" => lines![
+                "█████",
+                "█   █",
+                "█████",
+                "█   █",
+                "█████"
+            ],
+            "9" => lines![
+                "█████",
+                "█   █",
+                "█████",
+                "    █",
+                "█████"
+            ],
+            ":" => lines!["   ", " █ ", "   ", " █ ", "   "],
             " " => (0..5).map(|_| " ".to_owned()).collect::<Vec<_>>(),
             _ => (0..5).map(|_| "".to_owned()).collect::<Vec<_>>(),
         }
@@ -388,31 +409,36 @@ mod timer {
             let minutes = tmp / 60;
             tmp %= 60;
             let seconds = tmp;
-            format!("{}{:02}:{:02}",
-                    maybe_str!(format!("{}:", hours), total >= SEC_IN_HOUR),
-                    minutes,
-                    seconds)
-                .split("")
-                .collect::<Vec<&str>>()
-                .join(" ")
-                .split("")
-                .map(|c| String::from(c))
-                .collect::<Vec<String>>()
+            format!(
+                "{}{:02}:{:02}",
+                maybe_str!(format!("{}:", hours), total >= SEC_IN_HOUR),
+                minutes,
+                seconds
+            ).split("")
+            .collect::<Vec<&str>>()
+            .join(" ")
+            .split("")
+            .map(|c| String::from(c))
+            .collect::<Vec<String>>()
         } else {
             vec![]
         }
     }
 
     pub fn render(countdown: &Countdown, pos: &Position) -> String {
-        let rendered_title = format!("{under}{bold}{title}",
-                                     under=style::Underline,
-                                     bold=style::Bold,
-                                     title=countdown.title);
-        let rendered_status = format!("{}",
-                                      match countdown.state {
-                                          State::Paused => "[PAUSED]",
-                                          _ => "",
-                                      });
+        let rendered_title = format!(
+            "{under}{bold}{title}",
+            under = style::Underline,
+            bold = style::Bold,
+            title = countdown.title
+        );
+        let rendered_status = format!(
+            "{}",
+            match countdown.state {
+                State::Paused => "[PAUSED]",
+                _ => "",
+            }
+        );
         let mut lines: Vec<Vec<String>> = (3..8)
             .map(|idx| vec![format!("{}", cursor::Goto(pos.x, pos.y + idx))])
             .collect();
@@ -428,12 +454,14 @@ mod timer {
             .map(|line| line.join(""))
             .collect::<Vec<String>>()
             .join("");
-        format!("{pos}{reset}{title}{reset} {status}{lines}",
-                pos=cursor::Goto(pos.x, pos.y),
-                reset=style::Reset,
-                title=rendered_title,
-                status=rendered_status,
-                lines=lines_str)
+        format!(
+            "{pos}{reset}{title}{reset} {status}{lines}",
+            pos = cursor::Goto(pos.x, pos.y),
+            reset = style::Reset,
+            title = rendered_title,
+            status = rendered_status,
+            lines = lines_str
+        )
     }
 }
 
@@ -442,23 +470,29 @@ fn build_cli<'a, 'b>() -> clap::App<'a, 'b> {
         .version("0.1.0")
         .author("Chuck Bassett <3101367+chucksmash@users.noreply.github.com>")
         .about("Quick and Dirty CLI Pomodoro Timer")
-        .arg(Arg::with_name("goal")
-             .long("goal")
-             .short("g")
-             .value_name("NAME")
-             .help("Name of the current task you are working on.
+        .arg(
+            Arg::with_name("goal")
+                .long("goal")
+                .short("g")
+                .value_name("NAME")
+                .help(
+                    "Name of the current task you are working on.
 (default: \"\")
 
-")
-             .takes_value(true))
-        .arg(Arg::with_name("time")
-             .long("time")
-             .short("t")
-             .value_name("TIME")
-             .help("Initial time (format: [[HH:]MM:]SS).
+",
+                ).takes_value(true),
+        ).arg(
+            Arg::with_name("time")
+                .long("time")
+                .short("t")
+                .value_name("TIME")
+                .help(
+                    "Initial time (format: [[HH:]MM:]SS).
 (default: 25:00 minutes)
 
-"))
+",
+                ),
+        )
 }
 
 fn main() {
@@ -468,11 +502,7 @@ fn main() {
     let name = matches.value_of("goal").unwrap_or("").to_string();
 
     let stdout = io::stdout();
-    let screen = AlternateScreen::from(
-        stdout.lock().into_raw_mode().unwrap());
-    let mut pomo = Pomodoro::from_parts(async_stdin(),
-                                        screen,
-                                        name,
-                                        time);
+    let screen = AlternateScreen::from(stdout.lock().into_raw_mode().unwrap());
+    let mut pomo = Pomodoro::from_parts(async_stdin(), screen, name, time);
     pomo.run().unwrap();
 }

@@ -439,7 +439,7 @@ mod timer {
                 _ => "",
             }
         );
-        let mut lines: Vec<Vec<String>> = (3..8)
+        let mut lines: Vec<Vec<String>> = (4..9)
             .map(|idx| vec![format!("{}", cursor::Goto(pos.x, pos.y + idx))])
             .collect();
         let digits = to_digit_strs(countdown);

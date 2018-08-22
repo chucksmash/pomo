@@ -104,7 +104,7 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
             self.stdout.flush()?;
             sleep(SLEEP);
         }
-        for i in 0..10 {
+        for _ in 0..5 {
             writeln!(self.stdout, "\x07{}", cursor::Goto(1, 1))?;
             sleep(SLEEP * 2);
         }
@@ -189,41 +189,53 @@ mod card {
     use timer::Position;
 
     pub fn render(x: u16, y: u16, height: u16, width: u16) -> String {
-        // "┏";
-        // "┗";
-        // "┓";
-        // "┛";
-        // "┃";
-        // "━";
-        // "╴";
-        // "╶";
-        // "─";
         let w = width as usize;
         let h = height as usize;
         let mut rows = vec![];
         for offset in (0..height) {
-            let loc = cursor::Goto(x, y + offset);
+            let pos = Position { x, y: y + offset };;
             rows.push(match offset {
-                o if o == 0 => format!("{loc}{reset}{left}{empty:━>width$}{right}{reset}",
-                             loc=loc,
-                             reset=style::Reset,
-                             left="┏",
-                             empty="",
-                             width=w,
-                             right="┓"),
-                o if o == height - 1 => format!("{loc}{reset}{left}{empty:━>width$}{right}{reset}",
-                                      loc=loc,
-                                      reset=style::Reset,
-                                      left="┗",
-                                      empty="",
-                                      width=w,
-                                      right="┛"),
-                _ => format!("{loc}{reset}{side}{empty:width$}{side}{reset}",
-                            loc=loc,
-                            reset=style::Reset,
-                            side="┃",
-                            empty="",
-                            width=w),
+                o if o == 0 => format!(
+                    "{loc}{reset}{left}{empty:━>width$}{right}{reset}",
+                    loc=cursor::Goto(pos.x, pos.y),
+                    reset=style::Reset,
+                    left="┏",
+                    empty="",
+                    width=w,
+                    right="┓"),
+                o if o == 2 => format!(
+                    "{loc}{reset}{side}{linner}{empty:─>width$}{rinner}{side}{reset}",
+                    loc=cursor::Goto(pos.x, pos.y),
+                    reset=style::Reset,
+                    side="┃",
+                    linner="╶",
+                    empty="",
+                    width=w-2,
+                    rinner="╴"),
+                o if o == height - 3 => format!(
+                    "{loc}{reset}{side}{linner}{empty:─>width$}{rinner}{side}{reset}",
+                    loc=cursor::Goto(pos.x, pos.y),
+                    reset=style::Reset,
+                    side="┃",
+                    linner="╶",
+                    empty="",
+                    width=w-2,
+                    rinner="╴"),
+                o if o == height - 1 => format!(
+                    "{loc}{reset}{left}{empty:━>width$}{right}{reset}",
+                    loc=cursor::Goto(pos.x, pos.y),
+                    reset=style::Reset,
+                    left="┗",
+                    empty="",
+                    width=w,
+                    right="┛"),
+                _ => format!(
+                    "{loc}{reset}{side}{empty:width$}{side}{reset}",
+                    loc=cursor::Goto(pos.x, pos.y),
+                    reset=style::Reset,
+                    side="┃",
+                    empty="",
+                    width=w),
             });
         }
         rows.join("")

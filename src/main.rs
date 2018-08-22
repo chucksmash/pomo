@@ -128,28 +128,24 @@ mod parser {
     use std::time::Duration;
 
     pub fn parse_time(raw_time: &str) -> Result<Duration, ()> {
-        let mut hours: u64 = 0;
-        let mut minutes: u64 = 0;
-        let mut seconds: u64 = 0;
-        let mut total: u64 = 0;
         let parts: Vec<_> = raw_time.split(":").collect();
         // TODO: Handle overflow case without panicking
         match parts.len() {
             p if p == 3 => {
-                hours = parts[0].parse::<u64>().or(Err(()))?;
-                minutes = parts[1].parse::<u64>().or(Err(()))?;
-                seconds = parts[2].parse::<u64>().or(Err(()))?;
-                total = hours * 3600 + minutes * 60 + seconds;
+                let hours = parts[0].parse::<u64>().or(Err(()))?;
+                let minutes = parts[1].parse::<u64>().or(Err(()))?;
+                let seconds = parts[2].parse::<u64>().or(Err(()))?;
+                let total = hours * 3600 + minutes * 60 + seconds;
                 Ok(Duration::from_secs(total))
             },
             p if p == 2 => {
-                minutes = parts[0].parse::<u64>().or(Err(()))?;
-                seconds = parts[1].parse::<u64>().or(Err(()))?;
-                total = minutes * 60 + seconds;
+                let minutes = parts[0].parse::<u64>().or(Err(()))?;
+                let seconds = parts[1].parse::<u64>().or(Err(()))?;
+                let total = minutes * 60 + seconds;
                 Ok(Duration::from_secs(total))
             },
             p if p == 1 => {
-                seconds = parts[0].parse::<u64>().or(Err(()))?;
+                let seconds = parts[0].parse::<u64>().or(Err(()))?;
                 Ok(Duration::from_secs(seconds))
             },
             _ => Err(()),
@@ -189,9 +185,8 @@ mod card {
 
     pub fn render(x: u16, y: u16, height: u16, width: u16) -> String {
         let w = width as usize;
-        let h = height as usize;
         let mut rows = vec![];
-        for offset in (0..height) {
+        for offset in 0..height {
             let pos = Position { x, y: y + offset };;
             rows.push(match offset {
                 o if o == 0 => format!(
@@ -307,10 +302,6 @@ mod timer {
                 Paused => Running,
                 Finished => Finished,
             };
-        }
-
-        pub fn total(&self) -> Duration {
-            self.running + self.paused
         }
     }
 

@@ -42,6 +42,7 @@ macro_rules! lines {
 
 type TermResult = Result<(), io::Error>;
 
+const FAREWELL_BELLS: u16 = 5;
 const SEC_IN_MINUTE: u64 = 60;
 const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
 const SLEEP: Duration = Duration::from_millis(100);
@@ -66,8 +67,20 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
         Pomodoro::new(stdin, stdout, counter)
     }
 
-    fn bell(&mut self) -> TermResult {
-        write!(self.stdout, "\x07")
+    fn ring_once(&mut self) -> TermResult {
+        write!(self.stdout, "\x07")?;
+        self.stdout.flush()?;
+        Ok(())
+    }
+
+    fn ring(&mut self, times: u16, delay: Duration) -> TermResult {
+        let mut rings = 0;
+        while rings < times {
+            self.ring_once()?;
+            rings += 1;
+            sleep(delay);
+        }
+        Ok(())
     }
 
     fn run(&mut self) -> TermResult {
@@ -87,7 +100,7 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                 b'q' => break,
                 b' ' => {
                     self.current.toggle();
-                    self.bell()?;
+                    self.ring_once()?;
                 }
                 _ => {}
             }
@@ -101,9 +114,8 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
             self.stdout.flush()?;
             sleep(SLEEP);
         }
-        for _ in 0..5 {
-            writeln!(self.stdout, "\x07{}", cursor::Goto(1, 1))?;
-            sleep(SLEEP * 2);
+        if timer::State::Finished == self.current.tick() {
+            self.ring(FAREWELL_BELLS, SLEEP * 3)?;
         }
 
         self.cleanup()?;

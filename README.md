@@ -49,7 +49,7 @@ need to clone the repo and compile from source. Once you have `rustc`
 and `cargo` installed locally, the project is built via:
 
 ``` bash
-$ git clone git@github.com:chucksmash/poma.git
-$ cd poma
+$ git clone git@github.com:chucksmash/pomo.git
+$ cd pomo
 $ cargo build --release
 ```

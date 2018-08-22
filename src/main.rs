@@ -204,7 +204,6 @@ mod card {
 
     use timer::Position;
 
-    #[derive(Clone, Copy)]
     pub struct Dims {
         pub x: u16,
         pub y: u16,

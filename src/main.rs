@@ -13,6 +13,7 @@ use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
 use termion::{async_stdin, clear, color, cursor, style};
 
+use self::card::Dims;
 use self::timer::{Countdown, Position};
 
 macro_rules! maybe_str {
@@ -104,7 +105,13 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                 _ => {}
             }
             write!(self.stdout, "{}", clear::All);
-            let rendered_card = card::render(3, 2, 15, 50);
+            let card_dims = Dims {
+                x: 3,
+                y: 2,
+                height: 15,
+                width: 50,
+            };
+            let rendered_card = card::render(&card_dims);
             let rendered = timer::render(&self.current, &Position { x: 5, y: 3 });
             let rendered_help = help::render(&Position { x: 5, y: 15 });
             write!(self.stdout, "{}", rendered_card)?;
@@ -197,15 +204,28 @@ mod card {
 
     use timer::Position;
 
-    pub fn render(x: u16, y: u16, height: u16, width: u16) -> String {
+    #[derive(Clone, Copy)]
+    pub struct Dims {
+        pub x: u16,
+        pub y: u16,
+        pub height: u16,
+        pub width: u16,
+    }
+
+    pub fn render(dims: &Dims) -> String {
+        let &Dims {
+            x,
+            y,
+            height,
+            width,
+        } = dims;
         let w = width as usize;
         let mut rows = vec![];
         for offset in 0..height {
-            let pos = Position { x, y: y + offset };;
             rows.push(match offset {
                 o if o == 0 => format!(
                     "{loc}{reset}{left}{empty:━>width$}{right}{reset}",
-                    loc = cursor::Goto(pos.x, pos.y),
+                    loc = cursor::Goto(x, y + o),
                     reset = style::Reset,
                     left = "┏",
                     empty = "",
@@ -214,7 +234,7 @@ mod card {
                 ),
                 o if o == 2 => format!(
                     "{loc}{reset}{side}{linner}{empty:─>width$}{rinner}{side}{reset}",
-                    loc = cursor::Goto(pos.x, pos.y),
+                    loc = cursor::Goto(x, y + o),
                     reset = style::Reset,
                     side = "┃",
                     linner = "╶",
@@ -224,7 +244,7 @@ mod card {
                 ),
                 o if o == height - 3 => format!(
                     "{loc}{reset}{side}{linner}{empty:─>width$}{rinner}{side}{reset}",
-                    loc = cursor::Goto(pos.x, pos.y),
+                    loc = cursor::Goto(x, y + o),
                     reset = style::Reset,
                     side = "┃",
                     linner = "╶",
@@ -234,16 +254,16 @@ mod card {
                 ),
                 o if o == height - 1 => format!(
                     "{loc}{reset}{left}{empty:━>width$}{right}{reset}",
-                    loc = cursor::Goto(pos.x, pos.y),
+                    loc = cursor::Goto(x, y + o),
                     reset = style::Reset,
                     left = "┗",
                     empty = "",
                     width = w,
                     right = "┛"
                 ),
-                _ => format!(
+                o => format!(
                     "{loc}{reset}{side}{empty:width$}{side}{reset}",
-                    loc = cursor::Goto(pos.x, pos.y),
+                    loc = cursor::Goto(x, y + o),
                     reset = style::Reset,
                     side = "┃",
                     empty = "",

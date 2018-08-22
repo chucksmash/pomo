@@ -95,9 +95,9 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
                 _ => {},
             }
             write!(self.stdout, "{}", clear::All);
-            let rendered_card = card::render(3, 4, 15, 40);
-            let rendered = timer::render(&self.current, &Position { x: 5, y: 5});
-            let rendered_help = help::render(&Position { x: 5, y: 17 });
+            let rendered_card = card::render(3, 2, 15, 50);
+            let rendered = timer::render(&self.current, &Position { x: 5, y: 3});
+            let rendered_help = help::render(&Position { x: 5, y: 15 });
             write!(self.stdout, "{}", rendered_card)?;
             write!(self.stdout, "{}", rendered)?;
             write!(self.stdout, "{}", rendered_help)?;

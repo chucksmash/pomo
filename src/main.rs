@@ -137,25 +137,29 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
 mod parser {
     use std::time::Duration;
 
+    fn parse_part(s: &str) -> Result<u64, ()> {
+        s.parse::<u64>().or(Err(()))
+    }
+
     pub fn parse_time(raw_time: &str) -> Result<Duration, ()> {
         let parts: Vec<_> = raw_time.split(":").collect();
         // TODO: Handle overflow case without panicking
         match parts.len() {
             p if p == 3 => {
-                let hours = parts[0].parse::<u64>().or(Err(()))?;
-                let minutes = parts[1].parse::<u64>().or(Err(()))?;
-                let seconds = parts[2].parse::<u64>().or(Err(()))?;
+                let hours = parse_part(parts[0])?;
+                let minutes = parse_part(parts[1])?;
+                let seconds = parse_part(parts[2])?;
                 let total = hours * 3600 + minutes * 60 + seconds;
                 Ok(Duration::from_secs(total))
             }
             p if p == 2 => {
-                let minutes = parts[0].parse::<u64>().or(Err(()))?;
-                let seconds = parts[1].parse::<u64>().or(Err(()))?;
+                let minutes = parse_part(parts[0])?;
+                let seconds = parse_part(parts[1])?;
                 let total = minutes * 60 + seconds;
                 Ok(Duration::from_secs(total))
             }
             p if p == 1 => {
-                let seconds = parts[0].parse::<u64>().or(Err(()))?;
+                let seconds = parse_part(parts[0])?;
                 Ok(Duration::from_secs(seconds))
             }
             _ => Err(()),

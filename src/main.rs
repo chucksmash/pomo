@@ -13,8 +13,7 @@ use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
 use termion::{async_stdin, clear, color, cursor, style};
 
-use self::card::Dims;
-use self::timer::{Countdown, Position};
+use self::timer::Countdown;
 
 macro_rules! maybe_str {
     ( $val:expr, $test:expr ) => {{
@@ -141,6 +140,18 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
     }
 }
 
+pub struct Position {
+    x: u16,
+    y: u16,
+}
+
+pub struct Dims {
+    x: u16,
+    y: u16,
+    height: u16,
+    width: u16,
+}
+
 mod parser {
     use std::time::Duration;
 
@@ -202,14 +213,7 @@ mod help {
 mod card {
     use termion::{cursor, style};
 
-    use timer::Position;
-
-    pub struct Dims {
-        pub x: u16,
-        pub y: u16,
-        pub height: u16,
-        pub width: u16,
-    }
+    use super::Dims;
 
     pub fn render(dims: &Dims) -> String {
         let &Dims {
@@ -338,12 +342,6 @@ mod timer {
         fn default() -> Countdown {
             Countdown::new(Duration::from_secs(0), "")
         }
-    }
-
-    #[derive(Debug, PartialEq)]
-    pub struct Position {
-        pub x: u16,
-        pub y: u16,
     }
 
     fn render_digit(digit: &str) -> Vec<String> {

@@ -5,7 +5,6 @@ extern crate termion;
 use std::default::Default;
 use std::fmt;
 use std::io::{self, Read, Write};
-use std::ops::{Deref, DerefMut};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -15,7 +14,7 @@ use termion::{async_stdin, clear, color, cursor, style};
 use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
 
-use self::timer::{Countdown, Position, Timer};
+use self::timer::{Countdown, Position};
 
 macro_rules! maybe_str {
     ( $val:expr, $test:expr ) => {
@@ -50,15 +49,15 @@ const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
 const SLEEP: Duration = Duration::from_millis(100);
 
 struct Pomodoro<R, W> {
-    current: Timer,
+    current: Countdown,
     stdin: R,
     stdout: W,
 }
 
 impl<R: Read, W: Write> Pomodoro<R, W> {
-    fn new(stdin: R, stdout: W, timer: Timer) -> Pomodoro<R, W> {
+    fn new(stdin: R, stdout: W, counter: Countdown) -> Pomodoro<R, W> {
         Pomodoro {
-            current: timer,
+            current: counter,
             stdin,
             stdout,
         }
@@ -70,8 +69,8 @@ impl<R: Read, W: Write> Pomodoro<R, W> {
         name: String,
         duration: Duration
     ) -> Pomodoro<R, W> {
-        let timer = Timer::Work(Countdown::new(duration, &name));
-        Pomodoro::new(stdin, stdout, timer)
+        let counter = Countdown::new(duration, &name);
+        Pomodoro::new(stdin, stdout, counter)
     }
 
     fn bell(&mut self) -> TermResult {
@@ -318,37 +317,6 @@ mod timer {
     impl Default for Countdown {
         fn default() -> Countdown {
             Countdown::new(Duration::from_secs(0), "")
-        }
-    }
-
-    pub enum Timer {
-        Work(Countdown),
-        Break(Countdown),
-    }
-
-    impl Deref for Timer {
-        type Target = Countdown;
-
-        fn deref(&self) -> &Self::Target {
-            match self {
-                Timer::Work(c) => &c,
-                Timer::Break(c) => &c,
-            }
-        }
-    }
-
-    impl DerefMut for Timer {
-        fn deref_mut(&mut self) -> &mut Countdown {
-            match self {
-                Timer::Work(ref mut c) => c,
-                Timer::Break(ref mut c) => c,
-            }
-        }
-    }
-
-    impl Default for Timer {
-        fn default() -> Timer {
-            Timer::Work(Default::default())
         }
     }
 

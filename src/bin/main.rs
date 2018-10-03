@@ -2,17 +2,6 @@ extern crate chrono;
 extern crate clap;
 extern crate termion;
 
-use std::default::Default;
-use std::io::{self, Read, Write};
-use std::thread::sleep;
-use std::time::Duration;
-
-use chrono::{DateTime, Duration as OldDuration, Local};
-use clap::{App, Arg};
-use termion::raw::IntoRawMode;
-use termion::screen::{self, AlternateScreen};
-use termion::{async_stdin, clear, color, cursor, style};
-
 macro_rules! maybe_str {
     ( $val:expr, $test:expr ) => {{
         match $test {
@@ -25,6 +14,7 @@ macro_rules! maybe_str {
 macro_rules! lines {
     ( $( $line:expr ),* ) => {
         {
+            use termion::color;
             let mut tmp = Vec::new();
             let blue = color::Fg(color::Rgb(0x26, 0x8b, 0xd2));
             $(
@@ -38,8 +28,16 @@ macro_rules! lines {
 }
 
 mod pomo {
+    use std::io::{self, Read, Write};
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    use termion::{clear, cursor, screen};
+
+    use super::card;
+    use super::help;
+    use super::timer;
     use super::timer::Countdown;
-    use super::*;
 
     type TermResult = Result<(), io::Error>;
 
@@ -104,15 +102,15 @@ mod pomo {
                     _ => {}
                 }
                 write!(self.stdout, "{}", clear::All);
-                let card_dims = Dims {
+                let card_dims = card::Dims {
                     x: 3,
                     y: 2,
                     height: 15,
                     width: 50,
                 };
                 let rendered_card = card::render(&card_dims);
-                let rendered = timer::render(&self.current, &Position { x: 5, y: 3 });
-                let rendered_help = help::render(&Position { x: 5, y: 15 });
+                let rendered = timer::render(&self.current, &card::Position { x: 5, y: 3 });
+                let rendered_help = help::render(&card::Position { x: 5, y: 15 });
                 write!(self.stdout, "{}", rendered_card)?;
                 write!(self.stdout, "{}", rendered)?;
                 write!(self.stdout, "{}", rendered_help)?;
@@ -139,18 +137,6 @@ mod pomo {
             )
         }
     }
-}
-
-pub struct Position {
-    x: u16,
-    y: u16,
-}
-
-pub struct Dims {
-    x: u16,
-    y: u16,
-    height: u16,
-    width: u16,
 }
 
 mod parser {
@@ -187,10 +173,13 @@ mod parser {
 }
 
 mod help {
-    use super::*;
+    use termion::cursor;
+
+    use super::card::Position;
 
     macro_rules! help {
         ( $key:expr, $prefix:expr, $suffix:expr ) => {{
+            use termion::style;
             format!(
                 "{reset}{prefix}{bold}{key}{reset}{suffix}",
                 reset = style::Reset,
@@ -214,7 +203,17 @@ mod help {
 mod card {
     use termion::{cursor, style};
 
-    use super::Dims;
+    pub struct Dims {
+        pub x: u16,
+        pub y: u16,
+        pub height: u16,
+        pub width: u16,
+    }
+
+    pub struct Position {
+        pub x: u16,
+        pub y: u16,
+    }
 
     pub fn render(dims: &Dims) -> String {
         let &Dims {
@@ -280,7 +279,13 @@ mod card {
 }
 
 mod timer {
-    use super::*;
+    use std::default::Default;
+    use std::time::Duration;
+
+    use chrono::{DateTime, Duration as OldDuration, Local};
+    use termion::{cursor, style};
+
+    use super::card::Position;
 
     const SEC_IN_MINUTE: u64 = 60;
     const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
@@ -485,38 +490,50 @@ mod timer {
     }
 }
 
-fn build_cli<'a, 'b>() -> clap::App<'a, 'b> {
-    App::new("Pomo")
-        .version("0.1.0")
-        .author("Chuck Bassett <3101367+chucksmash@users.noreply.github.com>")
-        .about("Quick and Dirty CLI Pomodoro Timer")
-        .arg(
-            Arg::with_name("goal")
-                .long("goal")
-                .short("g")
-                .value_name("NAME")
-                .help(
-                    "Name of the current task you are working on.
+mod cli {
+    use clap::{App, Arg};
+
+    pub fn build_cli<'a, 'b>() -> clap::App<'a, 'b> {
+        App::new("Pomo")
+            .version("0.1.0")
+            .author("Chuck Bassett <3101367+chucksmash@users.noreply.github.com>")
+            .about("Quick and Dirty CLI Pomodoro Timer")
+            .arg(
+                Arg::with_name("goal")
+                    .long("goal")
+                    .short("g")
+                    .value_name("NAME")
+                    .help(
+                        "Name of the current task you are working on.
 (default: \"\")
 
 ",
-                ).takes_value(true),
-        ).arg(
-            Arg::with_name("time")
-                .long("time")
-                .short("t")
-                .value_name("TIME")
-                .help(
-                    "Initial time (format: [[HH:]MM:]SS).
+                    ).takes_value(true),
+            ).arg(
+                Arg::with_name("time")
+                    .long("time")
+                    .short("t")
+                    .value_name("TIME")
+                    .help(
+                        "Initial time (format: [[HH:]MM:]SS).
 (default: 25:00 minutes)
 
 ",
-                ),
-        )
+                    ),
+            )
+    }
 }
 
 fn main() {
+    use std::io;
+
+    use termion::async_stdin;
+    use termion::raw::IntoRawMode;
+    use termion::screen::AlternateScreen;
+
+    use cli::build_cli;
     use pomo::Pomodoro;
+
     let matches = build_cli().get_matches();
     let raw_time = matches.value_of("time").unwrap_or("25:00");
     let time = parser::parse_time(raw_time).expect("Unable to parse time param");

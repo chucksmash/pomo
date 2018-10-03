@@ -207,7 +207,8 @@ pub mod pomo {
                 screen::ToMainScreen,
                 style::Reset
             )?;
-            write!(self.stdout, "{:?}", self.logger)
+            let s = serde_json::to_string_pretty(&self.logger.format())?;
+            writeln!(self.stdout, "{}\r\n", s.replace("\n", "\r\n"),)
         }
     }
 }

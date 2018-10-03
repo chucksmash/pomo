@@ -13,8 +13,6 @@ use termion::raw::IntoRawMode;
 use termion::screen::{self, AlternateScreen};
 use termion::{async_stdin, clear, color, cursor, style};
 
-use self::timer::Countdown;
-
 macro_rules! maybe_str {
     ( $val:expr, $test:expr ) => {{
         match $test {
@@ -39,104 +37,107 @@ macro_rules! lines {
     }
 }
 
-type TermResult = Result<(), io::Error>;
+mod pomo {
+    use super::timer::Countdown;
+    use super::*;
 
-const FAREWELL_BELLS: u16 = 5;
-const SEC_IN_MINUTE: u64 = 60;
-const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
-const SLEEP: Duration = Duration::from_millis(100);
+    type TermResult = Result<(), io::Error>;
 
-struct Pomodoro<R, W> {
-    current: Countdown,
-    stdin: R,
-    stdout: W,
-}
+    const FAREWELL_BELLS: u16 = 5;
+    const SLEEP: Duration = Duration::from_millis(100);
 
-impl<R: Read, W: Write> Pomodoro<R, W> {
-    fn new(stdin: R, stdout: W, counter: Countdown) -> Pomodoro<R, W> {
-        Pomodoro {
-            current: counter,
-            stdin,
-            stdout,
-        }
+    pub struct Pomodoro<R, W> {
+        current: Countdown,
+        stdin: R,
+        stdout: W,
     }
 
-    fn from_parts(stdin: R, stdout: W, name: String, duration: Duration) -> Pomodoro<R, W> {
-        let counter = Countdown::new(duration, &name);
-        Pomodoro::new(stdin, stdout, counter)
-    }
-
-    fn ring_once(&mut self) -> TermResult {
-        write!(self.stdout, "\x07")?;
-        self.stdout.flush()?;
-        Ok(())
-    }
-
-    fn ring(&mut self, times: u16, delay: Duration) -> TermResult {
-        let mut rings = 0;
-        while rings < times {
-            self.ring_once()?;
-            rings += 1;
-            sleep(delay);
-        }
-        Ok(())
-    }
-
-    fn run(&mut self) -> TermResult {
-        writeln!(
-            self.stdout,
-            "{}{}{}",
-            clear::All,
-            cursor::Hide,
-            cursor::Goto(1, 1)
-        )?;
-
-        while timer::State::Finished != self.current.tick() {
-            let mut key_bytes = [0];
-            self.stdin.read(&mut key_bytes)?;
-
-            match key_bytes[0] {
-                b'q' => break,
-                b' ' => {
-                    self.current.toggle();
-                    self.ring_once()?;
-                }
-                _ => {}
+    impl<R: Read, W: Write> Pomodoro<R, W> {
+        pub fn new(stdin: R, stdout: W, counter: Countdown) -> Pomodoro<R, W> {
+            Pomodoro {
+                current: counter,
+                stdin,
+                stdout,
             }
-            write!(self.stdout, "{}", clear::All);
-            let card_dims = Dims {
-                x: 3,
-                y: 2,
-                height: 15,
-                width: 50,
-            };
-            let rendered_card = card::render(&card_dims);
-            let rendered = timer::render(&self.current, &Position { x: 5, y: 3 });
-            let rendered_help = help::render(&Position { x: 5, y: 15 });
-            write!(self.stdout, "{}", rendered_card)?;
-            write!(self.stdout, "{}", rendered)?;
-            write!(self.stdout, "{}", rendered_help)?;
+        }
+
+        pub fn from_parts(stdin: R, stdout: W, name: String, duration: Duration) -> Pomodoro<R, W> {
+            let counter = Countdown::new(duration, &name);
+            Pomodoro::new(stdin, stdout, counter)
+        }
+
+        fn ring_once(&mut self) -> TermResult {
+            write!(self.stdout, "\x07")?;
             self.stdout.flush()?;
-            sleep(SLEEP);
-        }
-        if timer::State::Finished == self.current.tick() {
-            self.ring(FAREWELL_BELLS, SLEEP * 3)?;
+            Ok(())
         }
 
-        self.cleanup()?;
-        Ok(())
-    }
+        fn ring(&mut self, times: u16, delay: Duration) -> TermResult {
+            let mut rings = 0;
+            while rings < times {
+                self.ring_once()?;
+                rings += 1;
+                sleep(delay);
+            }
+            Ok(())
+        }
 
-    fn cleanup(&mut self) -> TermResult {
-        write!(
-            self.stdout,
-            "{}{}{}{}{}\n",
-            cursor::Goto(1, 1),
-            clear::All,
-            cursor::Goto(1, 1),
-            cursor::Show,
-            screen::ToMainScreen,
-        )
+        pub fn run(&mut self) -> TermResult {
+            writeln!(
+                self.stdout,
+                "{}{}{}",
+                clear::All,
+                cursor::Hide,
+                cursor::Goto(1, 1)
+            )?;
+
+            while timer::State::Finished != self.current.tick() {
+                let mut key_bytes = [0];
+                self.stdin.read(&mut key_bytes)?;
+
+                match key_bytes[0] {
+                    b'q' => break,
+                    b' ' => {
+                        self.current.toggle();
+                        self.ring_once()?;
+                    }
+                    _ => {}
+                }
+                write!(self.stdout, "{}", clear::All);
+                let card_dims = Dims {
+                    x: 3,
+                    y: 2,
+                    height: 15,
+                    width: 50,
+                };
+                let rendered_card = card::render(&card_dims);
+                let rendered = timer::render(&self.current, &Position { x: 5, y: 3 });
+                let rendered_help = help::render(&Position { x: 5, y: 15 });
+                write!(self.stdout, "{}", rendered_card)?;
+                write!(self.stdout, "{}", rendered)?;
+                write!(self.stdout, "{}", rendered_help)?;
+                self.stdout.flush()?;
+                sleep(SLEEP);
+            }
+            if timer::State::Finished == self.current.tick() {
+                self.ring(FAREWELL_BELLS, SLEEP * 3)?;
+            }
+
+            self.cleanup()?;
+            Ok(())
+        }
+
+        fn cleanup(&mut self) -> TermResult {
+            write!(
+                self.stdout,
+                "{}{}{}{}{}\n",
+                cursor::Goto(1, 1),
+                clear::All,
+                cursor::Goto(1, 1),
+                cursor::Show,
+                screen::ToMainScreen,
+            )
+        }
     }
 }
 
@@ -280,6 +281,9 @@ mod card {
 
 mod timer {
     use super::*;
+
+    const SEC_IN_MINUTE: u64 = 60;
+    const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
 
     #[derive(Clone, Copy, PartialEq)]
     pub enum State {
@@ -512,6 +516,7 @@ fn build_cli<'a, 'b>() -> clap::App<'a, 'b> {
 }
 
 fn main() {
+    use pomo::Pomodoro;
     let matches = build_cli().get_matches();
     let raw_time = matches.value_of("time").unwrap_or("25:00");
     let time = parser::parse_time(raw_time).expect("Unable to parse time param");

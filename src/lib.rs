@@ -1,5 +1,9 @@
 extern crate chrono;
 extern crate clap;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
 extern crate termion;
 
 mod events {
@@ -35,6 +39,47 @@ mod events {
                     state,
                     time: Instant::now(),
                 })
+            }
+        }
+
+        pub fn format(&self) -> Formatted {
+            Formatted::from(&self)
+        }
+    }
+
+    #[derive(Serialize)]
+    struct Span {
+        state: State,
+        duration: String,
+    }
+
+    impl Span {
+        fn from(start: &Event, end: &Event) -> Span {
+            let d = end.time - start.time;
+            let secs = d.as_secs();
+            let tenths = d.subsec_millis() / 100;
+            Span {
+                state: start.state,
+                duration: format!("{}.{}", secs, tenths),
+            }
+        }
+    }
+
+    #[derive(Serialize)]
+    pub struct Formatted {
+        title: String,
+        events: Vec<Span>,
+    }
+
+    impl Formatted {
+        fn from(logger: &Logger) -> Formatted {
+            Formatted {
+                title: logger.title.clone(),
+                events: logger
+                    .states
+                    .windows(2)
+                    .map(|evs| Span::from(&evs[0], &evs[1]))
+                    .collect::<Vec<_>>(),
             }
         }
     }
@@ -343,7 +388,7 @@ mod timer {
     const SEC_IN_MINUTE: u64 = 60;
     const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
 
-    #[derive(Clone, Copy, Debug, PartialEq)]
+    #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
     pub enum State {
         Running,
         Paused,

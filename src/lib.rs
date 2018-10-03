@@ -2,14 +2,53 @@ extern crate chrono;
 extern crate clap;
 extern crate termion;
 
+mod events {
+    use std::time::{Duration, Instant};
+
+    use super::timer::State;
+
+    #[derive(Debug)]
+    struct Event {
+        state: State,
+        time: Instant,
+    }
+
+    #[derive(Debug)]
+    pub struct Logger {
+        title: String,
+        states: Vec<Event>,
+    }
+
+    impl Logger {
+        pub fn new(title: &str) -> Logger {
+            Logger {
+                title: title.to_owned(),
+                states: vec![],
+            }
+        }
+
+        pub fn log(&mut self, state: State) {
+            let ref mut states = self.states;
+            let len = states.len();
+            if len == 0 || states[len - 1].state != state {
+                states.push(Event {
+                    state,
+                    time: Instant::now(),
+                })
+            }
+        }
+    }
+}
+
 pub mod pomo {
     use std::io::{self, Read, Write};
     use std::thread::sleep;
     use std::time::Duration;
 
-    use termion::{clear, cursor, screen};
+    use termion::{clear, cursor, screen, style};
 
     use super::card;
+    use super::events::Logger;
     use super::help;
     use super::timer;
     use super::timer::Countdown;
@@ -21,14 +60,16 @@ pub mod pomo {
 
     pub struct Pomodoro<R, W> {
         current: Countdown,
+        logger: Logger,
         stdin: R,
         stdout: W,
     }
 
     impl<R: Read, W: Write> Pomodoro<R, W> {
-        pub fn new(stdin: R, stdout: W, counter: Countdown) -> Pomodoro<R, W> {
+        pub fn new(stdin: R, stdout: W, counter: Countdown, logger: Logger) -> Pomodoro<R, W> {
             Pomodoro {
                 current: counter,
+                logger,
                 stdin,
                 stdout,
             }
@@ -36,7 +77,8 @@ pub mod pomo {
 
         pub fn from_parts(stdin: R, stdout: W, name: String, duration: Duration) -> Pomodoro<R, W> {
             let counter = Countdown::new(duration, &name);
-            Pomodoro::new(stdin, stdout, counter)
+            let logger = Logger::new(&name);
+            Pomodoro::new(stdin, stdout, counter, logger)
         }
 
         fn ring_once(&mut self) -> TermResult {
@@ -64,12 +106,21 @@ pub mod pomo {
                 cursor::Goto(1, 1)
             )?;
 
-            while timer::State::Finished != self.current.tick() {
+            // loop-and-a-half
+            loop {
+                let curr_state = self.current.tick();
+                self.logger.log(curr_state);
+                if curr_state == timer::State::Finished {
+                    break;
+                }
                 let mut key_bytes = [0];
                 self.stdin.read(&mut key_bytes)?;
 
                 match key_bytes[0] {
-                    b'q' => break,
+                    b'q' => {
+                        self.current.finish();
+                        continue;
+                    }
                     b' ' => {
                         self.current.toggle();
                         self.ring_once()?;
@@ -103,13 +154,15 @@ pub mod pomo {
         fn cleanup(&mut self) -> TermResult {
             write!(
                 self.stdout,
-                "{}{}{}{}{}\n",
+                "{}{}{}{}{}{}\n",
                 cursor::Goto(1, 1),
                 clear::All,
                 cursor::Goto(1, 1),
                 cursor::Show,
                 screen::ToMainScreen,
-            )
+                style::Reset
+            )?;
+            write!(self.stdout, "{:?}", self.logger)
         }
     }
 }
@@ -290,7 +343,7 @@ mod timer {
     const SEC_IN_MINUTE: u64 = 60;
     const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
 
-    #[derive(Clone, Copy, PartialEq)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum State {
         Running,
         Paused,
@@ -344,6 +397,10 @@ mod timer {
                 Paused => Running,
                 Finished => Finished,
             };
+        }
+
+        pub fn finish(&mut self) {
+            self.state = State::Finished;
         }
     }
 
@@ -428,7 +485,15 @@ mod timer {
     fn to_digit_strs(countdown: &Countdown) -> Vec<String> {
         if let Some(left) = countdown.duration.checked_sub(countdown.running) {
             let total = countdown.duration.as_secs();
-            let mut tmp = left.as_secs();
+            let as_secs = left.as_secs();
+            // we fudge a little bit so that when you ask for 5 seconds
+            // you see the value 5 for the first second and also so that
+            // the countdown ends on zero.
+            let mut tmp = if as_secs > 0 || left.subsec_millis() > 150 {
+                as_secs + 1
+            } else {
+                0
+            };
             let hours = tmp / 3600;
             tmp %= 3600;
             let minutes = tmp / 60;

@@ -2,31 +2,6 @@ extern crate chrono;
 extern crate clap;
 extern crate termion;
 
-macro_rules! maybe_str {
-    ( $val:expr, $test:expr ) => {{
-        match $test {
-            true => format!("{}", $val),
-            false => "".to_owned(),
-        }
-    }};
-}
-
-macro_rules! lines {
-    ( $( $line:expr ),* ) => {
-        {
-            use termion::color;
-            let mut tmp = Vec::new();
-            let blue = color::Fg(color::Rgb(0x26, 0x8b, 0xd2));
-            $(
-                tmp.push(
-                    format!("{reset}{color}{line}{reset}",
-                            reset=style::Reset, color=blue, line=$line));
-            )*
-            tmp
-        }
-    }
-}
-
 pub mod pomo {
     use std::io::{self, Read, Write};
     use std::thread::sleep;
@@ -286,6 +261,31 @@ mod timer {
     use termion::{cursor, style};
 
     use super::card::Position;
+
+    macro_rules! maybe_str {
+        ( $val:expr, $test:expr ) => {{
+            match $test {
+                true => format!("{}", $val),
+                false => "".to_owned(),
+            }
+        }};
+    }
+
+    macro_rules! lines {
+        ( $( $line:expr ),* ) => {
+            {
+                use termion::color;
+                let mut tmp = Vec::new();
+                let blue = color::Fg(color::Rgb(0x26, 0x8b, 0xd2));
+                $(
+                    tmp.push(
+                        format!("{reset}{color}{line}{reset}",
+                                reset=style::Reset, color=blue, line=$line));
+                )*
+                    tmp
+            }
+        }
+    }
 
     const SEC_IN_MINUTE: u64 = 60;
     const SEC_IN_HOUR: u64 = SEC_IN_MINUTE * 60;
